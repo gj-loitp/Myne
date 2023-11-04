@@ -14,20 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package com.starry.myne.api.models
+package com.starry.myne.ui.screens.reader.adapters
 
-
-import androidx.annotation.Keep
-import com.google.gson.annotations.SerializedName
-
-@Keep
-data class BookSet(
-    @SerializedName("count")
-    val count: Int,
-    @SerializedName("next")
-    val next: String?,
-    @SerializedName("previous")
-    val previous: String?,
-    @SerializedName("results")
-    val books: List<Book>
-)
+interface ReaderClickListener {
+    fun onReaderClick()
+}

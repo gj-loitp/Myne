@@ -7,7 +7,8 @@
     <string name="cancel">Cancelar</string>
     <string name="storage_perm_error">Por favor, acepte el permiso de almacenamiento</string>
     <string name="no_app_to_handle_epub">No se ha podido encontrar ninguna aplicación para abrir el fichero epub.</string>
-    <string name="network_error">Oops! Failed to establish connection with the server, please check if your internet is working properly and try again.</string>
+    <string name="network_error">Oops! Failed to connect with the server.</string>
+    <string name="network_error_retry">Try Again</string>
     <string name="error">¡Ups! Algo ha ido mal.</string>
 
     <!-- Navigation titles -->
@@ -28,6 +29,7 @@
 
     <!-- Categories screen. -->
     <string name="categories_header">Categorías</string>
+    <string name="no_books_found_for_lang_and_cat">No books available in %s language for this category.</string>
 
     <!-- Library screen. -->
     <string name="library_header">Biblioteca</string>
@@ -54,6 +56,7 @@
     <!--Reader Screen -->
     <string name="reader_max_font_size_reached">Lo sentimos, no puede subir más</string>
     <string name="reader_min_font_size_reached">Lo sentimos, no puede bajar más</string>
+    <string name="reader_font_style_chooer">Change FontStyle</string>
 
     <!-- Settings screen. -->
     <string name="settings_header">Ajustes</string>

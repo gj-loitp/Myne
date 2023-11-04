@@ -18,10 +18,11 @@ limitations under the License.
 package com.starry.myne.di
 
 import android.content.Context
-import com.starry.myne.api.BooksApi
 import com.starry.myne.database.MyneDatabase
-import com.starry.myne.others.BookDownloader
 import com.starry.myne.others.WelcomeDataStore
+import com.starry.myne.repo.BookRepository
+import com.starry.myne.utils.BookDownloader
+import com.starry.myne.utils.PreferenceUtil
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -50,11 +51,15 @@ class MainModule {
 
     @Singleton
     @Provides
-    fun provideBooksApi(@ApplicationContext context: Context) = BooksApi(context)
+    fun provideBooksApi() = BookRepository()
 
     @Singleton
     @Provides
     fun provideBookDownloader(@ApplicationContext context: Context) = BookDownloader(context)
+
+    @Singleton
+    @Provides
+    fun providePreferenceUtil(@ApplicationContext context: Context) = PreferenceUtil(context)
 
     @Provides
     @Singleton

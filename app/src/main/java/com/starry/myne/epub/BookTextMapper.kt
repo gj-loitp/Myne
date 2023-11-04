@@ -18,6 +18,7 @@ limitations under the License.
 package com.starry.myne.epub
 
 import org.jsoup.Jsoup
+import java.util.Locale
 
 object BookTextMapper {
     // <img yrel="{float}"> {uri} </img>
@@ -28,11 +29,10 @@ object BookTextMapper {
          */
         companion object {
 
-            /*
+
             fun fromXMLString(text: String): ImgEntry? {
                 return fromXMLStringV0(text) ?: fromXMLStringV1(text)
             }
-            */
 
             private fun fromXMLStringV1(text: String): ImgEntry? {
                 return Jsoup.parse(text).selectFirst("img")?.let {
@@ -47,7 +47,6 @@ object BookTextMapper {
 
             private fun fromXMLStringV0(text: String): ImgEntry? {
                 // Fast discard filter
-
                 if (!text.matches(XMLForm_v0))
                     return null
                 return parseXMLText(text)?.selectFirstTag("img")?.let {
@@ -64,7 +63,7 @@ object BookTextMapper {
         }
 
         private fun toXMLStringV1(): String {
-            return """<img src="$path" yrel="${"%.2f".format(yrel)}">"""
+            return """<img src="$path" yrel="${"%.2f".format(Locale.US, yrel)}">"""
         }
 
         /*

@@ -16,9 +16,13 @@ limitations under the License.
 
 package com.starry.myne.ui.navigation
 
-import androidx.compose.animation.*
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,11 +39,10 @@ import com.google.accompanist.navigation.animation.composable
 import com.starry.myne.others.NetworkObserver
 import com.starry.myne.ui.screens.categories.composables.CategoriesScreen
 import com.starry.myne.ui.screens.categories.composables.CategoryDetailScreen
-import com.starry.myne.ui.screens.home.composables.BookDetailScreen
+import com.starry.myne.ui.screens.detail.composables.BookDetailScreen
 import com.starry.myne.ui.screens.home.composables.HomeScreen
 import com.starry.myne.ui.screens.library.composables.LibraryScreen
 import com.starry.myne.ui.screens.reader.composables.ReaderDetailScreen
-import com.starry.myne.ui.screens.reader.composables.ReaderScreen
 import com.starry.myne.ui.screens.settings.composables.AboutScreen
 import com.starry.myne.ui.screens.settings.composables.OSLScreen
 import com.starry.myne.ui.screens.settings.composables.SettingsScreen
@@ -151,7 +154,7 @@ fun NavGraph(
             },
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments!!.getString(BOOK_ID_ARG_KEY)!!
-            BookDetailScreen(bookId, navController, networkStatus)
+            BookDetailScreen(bookId, navController)
         }
 
         /** Categories Screen */
@@ -289,37 +292,11 @@ fun NavGraph(
             },
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments!!.getString(BOOK_ID_ARG_KEY)!!
-            ReaderDetailScreen(bookId = bookId, navController = navController)
-        }
-
-        /** Reader Screen */
-        composable(
-            route = Screens.ReaderScreen.route,
-            arguments = listOf(navArgument(
-                BOOK_ID_ARG_KEY
-            ) {
-                type = NavType.StringType
-            }, navArgument(READER_CHAPTER_INDEX_KEY) {
-                type = NavType.IntType
-            }),
-            enterTransition = {
-                slideInHorizontally(
-                    initialOffsetX = { 300 }, animationSpec = tween(
-                        durationMillis = 300, easing = FastOutSlowInEasing
-                    )
-                ) + fadeIn(animationSpec = tween(300))
-            },
-            popExitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { 300 }, animationSpec = tween(
-                        durationMillis = 300, easing = FastOutSlowInEasing
-                    )
-                ) + fadeOut(animationSpec = tween(300))
-            },
-        ) { backStackEntry ->
-            val bookId = backStackEntry.arguments!!.getString(BOOK_ID_ARG_KEY)!!
-            val chapterIdx = backStackEntry.arguments!!.getInt(READER_CHAPTER_INDEX_KEY)
-            ReaderScreen(bookId = bookId, chapterIdx)
+            ReaderDetailScreen(
+                bookId = bookId,
+                navController = navController,
+                networkStatus = networkStatus
+            )
         }
 
         /** Settings Screen */

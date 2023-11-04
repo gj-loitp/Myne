@@ -16,15 +16,15 @@ limitations under the License.
 
 package com.starry.myne.utils
 
-import com.starry.myne.api.models.Author
-import java.util.*
+import com.starry.myne.repo.models.Author
+import java.util.Locale
 
 object BookUtils {
     fun getAuthorsAsString(authors: List<Author>): String {
         return if (authors.isNotEmpty()) {
             var result: String
             if (authors.size > 1) {
-                result = authors.first().name
+                result = fixAuthorName(authors.first().name)
                 authors.slice(1 until authors.size).forEach { author ->
                     if (author.name != "N/A")
                         result += ", ${fixAuthorName(author.name)}"

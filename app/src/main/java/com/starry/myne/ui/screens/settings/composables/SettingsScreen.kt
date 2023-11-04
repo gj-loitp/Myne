@@ -55,8 +55,8 @@ import com.starry.myne.ui.navigation.Screens
 import com.starry.myne.ui.screens.settings.viewmodels.SettingsViewModel
 import com.starry.myne.ui.screens.settings.viewmodels.ThemeMode
 import com.starry.myne.ui.theme.figeronaFont
-import com.starry.myne.utils.PreferenceUtils
 import com.starry.myne.utils.getActivity
+import kotlinx.coroutines.launch
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @ExperimentalCoilApi
@@ -81,11 +81,11 @@ fun SettingsScreen(navController: NavController) {
         ) {
             CustomTopAppBar(
                 headerText = stringResource(id = R.string.settings_header),
-                icon = R.drawable.ic_nav_settings
+                iconRes = R.drawable.ic_nav_settings
             )
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 SettingsCard()
-                GeneralOptionsUI()
+                GeneralOptionsUI(viewModel = viewModel)
                 DisplayOptionsUI(viewModel = viewModel, context = context, snackBarHostState)
                 InformationUI(navController = navController)
             }
@@ -166,10 +166,8 @@ fun SettingsCard() {
 
 @ExperimentalMaterial3Api
 @Composable
-fun GeneralOptionsUI() {
-    val internalReaderValue = when (PreferenceUtils.getBoolean(
-        PreferenceUtils.INTERNAL_READER, true
-    )) {
+fun GeneralOptionsUI(viewModel: SettingsViewModel) {
+    val internalReaderValue = when (viewModel.getInternalReaderValue()) {
         true -> "Internal Reader"
         false -> "External Reader"
     }
@@ -246,10 +244,11 @@ fun GeneralOptionsUI() {
 
                 when (selectedOption) {
                     "External Reader" -> {
-                        PreferenceUtils.putBoolean(PreferenceUtils.INTERNAL_READER, false)
+                        viewModel.setInternalReaderValue(false)
                     }
+
                     "Internal Reader" -> {
-                        PreferenceUtils.putBoolean(PreferenceUtils.INTERNAL_READER, true)
+                        viewModel.setInternalReaderValue(true)
                     }
                 }
             }) {
@@ -276,8 +275,10 @@ fun DisplayOptionsUI(
     context: Context,
     snackbarHostState: SnackbarHostState,
 ) {
+    val coroutiScope = rememberCoroutineScope()
+
     val displayValue =
-        when (PreferenceUtils.getInt(PreferenceUtils.APP_THEME, ThemeMode.Auto.ordinal)) {
+        when (viewModel.getThemeValue()) {
             ThemeMode.Light.ordinal -> "Light"
             ThemeMode.Dark.ordinal -> "Dark"
             else -> "System"
@@ -286,14 +287,7 @@ fun DisplayOptionsUI(
     val radioOptions = listOf("Light", "Dark", "System")
     val (selectedOption, onOptionSelected) = remember { mutableStateOf(displayValue) }
 
-    val materialYouSwitch = remember {
-        mutableStateOf(
-            PreferenceUtils.getBoolean(
-                PreferenceUtils.MATERIAL_YOU, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-            )
-        )
-    }
-
+    val materialYouSwitch = remember { mutableStateOf(viewModel.getMaterialYouValue()) }
     val materialYouDesc = if (materialYouSwitch.value) {
         stringResource(id = R.string.material_you_settings_enabled_desc)
     } else {
@@ -321,23 +315,18 @@ fun DisplayOptionsUI(
             icon = R.drawable.ic_settings_material_you,
             mainText = stringResource(id = R.string.material_you_setting),
             subText = materialYouDesc,
-            switchState = materialYouSwitch
+            switchState = materialYouSwitch,
+            onCheckChange = { materialYouValue ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    viewModel.setMaterialYou(materialYouValue)
+                    materialYouSwitch.value = materialYouValue
+                } else {
+                    viewModel.setMaterialYou(false)
+                    materialYouSwitch.value = false
+                    coroutiScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.material_you_error)) }
+                }
+            }
         )
-    }
-
-    if (materialYouSwitch.value) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            viewModel.setMaterialYou(true)
-            PreferenceUtils.putBoolean(PreferenceUtils.MATERIAL_YOU, true)
-        } else {
-            materialYouSwitch.value = false
-            LaunchedEffect(
-                key1 = true,
-                block = { snackbarHostState.showSnackbar(context.getString(R.string.material_you_error)) })
-        }
-    } else {
-        viewModel.setMaterialYou(false)
-        PreferenceUtils.putBoolean(PreferenceUtils.MATERIAL_YOU, false)
     }
 
     if (displayDialog.value) {
@@ -393,24 +382,17 @@ fun DisplayOptionsUI(
                         viewModel.setTheme(
                             ThemeMode.Light
                         )
-                        PreferenceUtils.putInt(
-                            PreferenceUtils.APP_THEME, ThemeMode.Light.ordinal
-                        )
                     }
+
                     "Dark" -> {
                         viewModel.setTheme(
                             ThemeMode.Dark
                         )
-                        PreferenceUtils.putInt(
-                            PreferenceUtils.APP_THEME, ThemeMode.Dark.ordinal
-                        )
                     }
+
                     "System" -> {
                         viewModel.setTheme(
                             ThemeMode.Auto
-                        )
-                        PreferenceUtils.putInt(
-                            PreferenceUtils.APP_THEME, ThemeMode.Auto.ordinal
                         )
                     }
                 }

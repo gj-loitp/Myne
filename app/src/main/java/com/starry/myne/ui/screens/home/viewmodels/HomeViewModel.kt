@@ -16,15 +16,20 @@ limitations under the License.
 
 package com.starry.myne.ui.screens.home.viewmodels
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.starry.myne.api.BooksApi
-import com.starry.myne.api.models.Book
-import com.starry.myne.api.models.BookSet
-import com.starry.myne.others.BookLanguages
+import com.starry.myne.others.BookLanguage
 import com.starry.myne.others.NetworkObserver
 import com.starry.myne.others.Paginator
+import com.starry.myne.repo.BookRepository
+import com.starry.myne.repo.models.Book
+import com.starry.myne.repo.models.BookSet
+import com.starry.myne.utils.PreferenceUtil
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -50,18 +55,24 @@ data class TopBarState(
 sealed class UserAction {
     object SearchIconClicked : UserAction()
     object CloseIconClicked : UserAction()
-    data class TextFieldInput(val text: String) : UserAction()
-    data class LanguageItemClicked(val language: BookLanguages) : UserAction()
+    data class TextFieldInput(
+        val text: String,
+        val networkStatus: NetworkObserver.Status
+    ) : UserAction()
+
+    data class LanguageItemClicked(val language: BookLanguage) : UserAction()
 }
 
 @HiltViewModel
-class HomeViewModel @Inject constructor(private val booksApi: BooksApi) : ViewModel() {
+class HomeViewModel @Inject constructor(
+    private val bookRepository: BookRepository,
+    private val preferenceUtil: PreferenceUtil
+) : ViewModel() {
     var allBooksState by mutableStateOf(AllBooksState())
     var topBarState by mutableStateOf(TopBarState())
 
-    private val _language: MutableState<BookLanguages> =
-        mutableStateOf(BookLanguages.AllBooks)
-    val language: State<BookLanguages> = _language
+    private val _language: MutableState<BookLanguage> = mutableStateOf(getPreferredLanguage())
+    val language: State<BookLanguage> = _language
 
     private var searchJob: Job? = null
 
@@ -69,14 +80,14 @@ class HomeViewModel @Inject constructor(private val booksApi: BooksApi) : ViewMo
         allBooksState = allBooksState.copy(isLoading = it)
     }, onRequest = { nextPage ->
         try {
-            booksApi.getAllBooks(nextPage, language.value)
+            bookRepository.getAllBooks(nextPage, language.value)
         } catch (exc: Exception) {
             Result.failure(exc)
         }
     }, getNextPage = {
         allBooksState.page + 1L
     }, onError = {
-        allBooksState = allBooksState.copy(error = it?.localizedMessage)
+        allBooksState = allBooksState.copy(error = it?.localizedMessage ?: "unknown-error")
     }, onSuccess = { bookSet, newPage ->
         /**
          * usually bookSet.books is not nullable and API simply returns empty list
@@ -91,8 +102,8 @@ class HomeViewModel @Inject constructor(private val booksApi: BooksApi) : ViewMo
 
             // pls ignore (this line doesn't exists)...
             if (setOf(
-                    BookLanguages.English,
-                    BookLanguages.AllBooks
+                    BookLanguage.English,
+                    BookLanguage.AllBooks
                 ).contains(language.value) && allBooksState.page == 1L
             ) {
                 books.removeAt(0)
@@ -120,17 +131,25 @@ class HomeViewModel @Inject constructor(private val booksApi: BooksApi) : ViewMo
         }
     }
 
-    fun onAction(userAction: UserAction, networkStatus: NetworkObserver.Status) {
+    fun reloadItems() {
+        pagination.reset()
+        allBooksState = AllBooksState()
+        loadNextItems()
+    }
+
+    fun onAction(userAction: UserAction) {
         when (userAction) {
             UserAction.CloseIconClicked -> {
                 topBarState = topBarState.copy(isSearchBarVisible = false)
             }
+
             UserAction.SearchIconClicked -> {
                 topBarState = topBarState.copy(isSearchBarVisible = true)
             }
+
             is UserAction.TextFieldInput -> {
                 topBarState = topBarState.copy(searchText = userAction.text)
-                if (networkStatus == NetworkObserver.Status.Available) {
+                if (userAction.networkStatus == NetworkObserver.Status.Available) {
                     searchJob?.cancel()
                     searchJob = viewModelScope.launch {
                         if (userAction.text.isNotBlank()) {
@@ -141,27 +160,31 @@ class HomeViewModel @Inject constructor(private val booksApi: BooksApi) : ViewMo
                     }
                 }
             }
+
             is UserAction.LanguageItemClicked -> {
-                viewModelScope.launch { changeLanguage(userAction.language) }
+                changeLanguage(userAction.language)
             }
         }
     }
 
     private suspend fun searchBooks(query: String) {
-        val bookSet = booksApi.searchBooks(query)
+        val bookSet = bookRepository.searchBooks(query)
         val books = bookSet.getOrNull()!!.books.filter { it.formats.applicationepubzip != null }
         topBarState = topBarState.copy(searchResults = books, isSearching = false)
     }
 
-    private suspend fun changeLanguage(language: BookLanguages) {
-        pagination.reset()
-        allBooksState = allBooksState.copy(
-            isLoading = true,
-            items = emptyList(),
-            endReached = false,
-            page = 1L
-        )
+    private fun changeLanguage(language: BookLanguage) {
         _language.value = language
-        pagination.loadNextItems()
+        preferenceUtil.putString(PreferenceUtil.PREFERRED_BOOK_LANG_STR, language.isoCode)
+        reloadItems()
+    }
+
+    private fun getPreferredLanguage(): BookLanguage {
+        val isoCode = preferenceUtil.getString(
+            PreferenceUtil.PREFERRED_BOOK_LANG_STR,
+            BookLanguage.AllBooks.isoCode
+        )
+        return BookLanguage.getAllLanguages().find { it.isoCode == isoCode }
+            ?: BookLanguage.AllBooks
     }
 }

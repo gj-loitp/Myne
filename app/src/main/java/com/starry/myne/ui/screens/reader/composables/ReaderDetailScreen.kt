@@ -17,16 +17,39 @@ limitations under the License.
 
 package com.starry.myne.ui.screens.reader.composables
 
+import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -57,10 +80,11 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.starry.myne.MainActivity
 import com.starry.myne.R
+import com.starry.myne.others.NetworkObserver
 import com.starry.myne.ui.common.CustomTopAppBar
 import com.starry.myne.ui.common.ProgressDots
 import com.starry.myne.ui.common.simpleVerticalScrollbar
-import com.starry.myne.ui.navigation.Screens
+import com.starry.myne.ui.screens.reader.activities.ReaderActivity
 import com.starry.myne.ui.screens.reader.viewmodels.ReaderDetailViewModel
 import com.starry.myne.ui.screens.settings.viewmodels.ThemeMode
 import com.starry.myne.ui.theme.figeronaFont
@@ -71,11 +95,15 @@ import com.starry.myne.utils.getActivity
 @ExperimentalMaterial3Api
 @ExperimentalMaterialApi
 @Composable
-fun ReaderDetailScreen(bookId: String, navController: NavController) {
+fun ReaderDetailScreen(
+    bookId: String,
+    navController: NavController,
+    networkStatus: NetworkObserver.Status
+) {
     val viewModel: ReaderDetailViewModel = hiltViewModel()
     val state = viewModel.state
 
-    LaunchedEffect(key1 = true) { viewModel.loadEbookData(bookId) }
+    LaunchedEffect(key1 = true) { viewModel.loadEbookData(bookId, networkStatus) }
 
     val context = LocalContext.current
     val settingsVM = (context.getActivity() as MainActivity).settingsViewModel
@@ -99,7 +127,11 @@ fun ReaderDetailScreen(bookId: String, navController: NavController) {
         }, floatingActionButton = {
             ExtendedFloatingActionButton(
                 text = { Text(text = stringResource(id = if (state.readerItem != null) R.string.continue_reading_button else R.string.start_reading_button)) },
-                onClick = { navController.navigate(Screens.ReaderScreen.withBookId(bookId)) },
+                onClick = {
+                    val intent = Intent(context, ReaderActivity::class.java)
+                    intent.putExtra(ReaderActivity.EXTRA_BOOK_ID, bookId.toInt())
+                    context.startActivity(intent)
+                },
                 icon = {
                     Icon(
                         imageVector = ImageVector.vectorResource(id = R.drawable.ic_reader_fab_button),
@@ -263,13 +295,12 @@ fun ReaderDetailScreen(bookId: String, navController: NavController) {
                 ) {
                     items(state.ebookData!!.epubBook.chapters.size) { idx ->
                         val chapter = state.ebookData.epubBook.chapters[idx]
-                        ChapterItem(chapterTitle = chapter.title) {
-                            navController.navigate(
-                                Screens.ReaderScreen.withBookId(
-                                    bookId, idx = idx
-                                )
-                            )
-                        }
+                        ChapterItem(chapterTitle = chapter.title, onClick = {
+                            val intent = Intent(context, ReaderActivity::class.java)
+                            intent.putExtra(ReaderActivity.EXTRA_BOOK_ID, bookId.toInt())
+                            intent.putExtra(ReaderActivity.EXTRA_CHAPTER_IDX, idx)
+                            context.startActivity(intent)
+                        })
                     }
                 }
             }
@@ -422,6 +453,6 @@ fun ReaderError(navController: NavController) {
 @Preview(showBackground = true)
 @Composable
 fun EpubDetailScreenPV() {
-    ReaderDetailScreen("", rememberNavController())
+    ReaderDetailScreen("", rememberNavController(), NetworkObserver.Status.Available)
     //ReaderError(rememberNavController())
 }

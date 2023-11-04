@@ -14,17 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package com.starry.myne.api
+package com.starry.myne.repo
 
-import android.content.Context
-import android.net.ConnectivityManager
 import com.google.gson.Gson
-import com.starry.myne.api.models.BookSet
-import com.starry.myne.api.models.ExtraInfo
-import com.starry.myne.others.BookLanguages
+import com.starry.myne.others.BookLanguage
+import com.starry.myne.repo.models.BookSet
+import com.starry.myne.repo.models.ExtraInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.*
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
@@ -35,25 +37,7 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 
-class ForceCacheInterceptor(context: Context) : Interceptor {
-
-    private val connectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-    @Throws(IOException::class)
-    override fun intercept(chain: Interceptor.Chain): Response {
-        val networkCapabilities =
-            connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
-
-        val builder: Request.Builder = chain.request().newBuilder()
-        if (networkCapabilities == null) {
-            builder.cacheControl(CacheControl.FORCE_CACHE)
-        }
-        return chain.proceed(builder.build())
-    }
-}
-
-class BooksApi(context: Context) {
+class BookRepository {
 
     private lateinit var baseApiUrl: String
     private val googleBooksUrl = "https://www.googleapis.com/books/v1/volumes"
@@ -61,21 +45,18 @@ class BooksApi(context: Context) {
 
 
     private val okHttpClient = OkHttpClient.Builder().connectTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS).readTimeout(100, TimeUnit.SECONDS)
-        .cache(Cache(context.cacheDir, 50 * 1024 * 1024L))
-        .addInterceptor(ForceCacheInterceptor(context)).build()
+        .writeTimeout(60, TimeUnit.SECONDS).readTimeout(100, TimeUnit.SECONDS).build()
 
     private val gsonClient = Gson()
 
     suspend fun getAllBooks(
         page: Long,
-        bookLanguage: BookLanguages = BookLanguages.English
+        bookLanguage: BookLanguage = BookLanguage.AllBooks
     ): Result<BookSet> {
         setApiUrlIfNotSetAlready()
-        val url = if (bookLanguage != BookLanguages.AllBooks) {
-            "${baseApiUrl}?page=$page&languages=${bookLanguage.isoCode}"
-        } else {
-            "${baseApiUrl}?page=$page"
+        var url = "${baseApiUrl}?page=$page"
+        if (bookLanguage != BookLanguage.AllBooks) {
+            url += "&languages=${bookLanguage.isoCode}"
         }
         val request = Request.Builder().get().url(url).build()
         return makeApiRequest(request)
@@ -96,10 +77,17 @@ class BooksApi(context: Context) {
         return makeApiRequest(request)
     }
 
-    suspend fun getBooksByCategory(category: String, page: Long): Result<BookSet> {
+    suspend fun getBooksByCategory(
+        category: String,
+        page: Long,
+        bookLanguage: BookLanguage = BookLanguage.AllBooks
+    ): Result<BookSet> {
         setApiUrlIfNotSetAlready()
-        val request =
-            Request.Builder().get().url("${baseApiUrl}?page=$page&topic=$category").build()
+        var url = "${baseApiUrl}?page=$page&topic=$category"
+        if (bookLanguage != BookLanguage.AllBooks) {
+            url += "&languages=${bookLanguage.isoCode}"
+        }
+        val request = Request.Builder().get().url(url).build()
         return makeApiRequest(request)
     }
 
@@ -126,8 +114,7 @@ class BooksApi(context: Context) {
 
     suspend fun getExtraInfo(bookName: String): ExtraInfo? = suspendCoroutine { continuation ->
         val encodedName = URLEncoder.encode(bookName, "UTF-8")
-        val url =
-            "${googleBooksUrl}?q=$encodedName&startIndex=0&maxResults=1&apiKey=$googleApiKey"
+        val url = "${googleBooksUrl}?q=$encodedName&startIndex=0&maxResults=1&key=$googleApiKey"
         val request = Request.Builder().get().url(url).build()
         okHttpClient.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -156,13 +143,22 @@ class BooksApi(context: Context) {
                 val imageLinks = volumeInfo.getJSONObject("imageLinks")
                 // Build Extra info.
                 val coverImage = imageLinks.getString("thumbnail")
-                val pageCount = volumeInfo.getInt("pageCount")
-                val description = volumeInfo.getString("description")
+                val pageCount = try {
+                    volumeInfo.getInt("pageCount")
+                } catch (exc: JSONException) {
+                    0
+                }
+                val description = try {
+                    volumeInfo.getString("description")
+                } catch (exc: JSONException) {
+                    ""
+                }
                 ExtraInfo(coverImage, pageCount, description)
             } else {
                 null
             }
         } catch (exc: JSONException) {
+            exc.printStackTrace()
             null
         }
     }

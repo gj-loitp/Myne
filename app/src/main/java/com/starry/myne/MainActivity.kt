@@ -43,7 +43,6 @@ import com.starry.myne.ui.screens.main.MainScreen
 import com.starry.myne.ui.screens.settings.viewmodels.SettingsViewModel
 import com.starry.myne.ui.screens.settings.viewmodels.ThemeMode
 import com.starry.myne.ui.theme.MyneTheme
-import com.starry.myne.utils.PreferenceUtils
 import dagger.hilt.android.AndroidEntryPoint
 
 @ExperimentalMaterialApi
@@ -61,22 +60,17 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        PreferenceUtils.initialize(this)
         networkObserver = NetworkObserver(applicationContext)
         settingsViewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
         mainViewModel = ViewModelProvider(this)[MainViewModel::class.java]
 
-        when (PreferenceUtils.getInt(PreferenceUtils.APP_THEME, ThemeMode.Auto.ordinal)) {
+        when (settingsViewModel.getThemeValue()) {
             ThemeMode.Auto.ordinal -> settingsViewModel.setTheme(ThemeMode.Auto)
             ThemeMode.Dark.ordinal -> settingsViewModel.setTheme(ThemeMode.Dark)
             ThemeMode.Light.ordinal -> settingsViewModel.setTheme(ThemeMode.Light)
         }
 
-        settingsViewModel.setMaterialYou(
-            PreferenceUtils.getBoolean(
-                PreferenceUtils.MATERIAL_YOU, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-            )
-        )
+        settingsViewModel.setMaterialYou(settingsViewModel.getMaterialYouValue())
 
         // Install splash screen before setting content.
         installSplashScreen().setKeepOnScreenCondition {
